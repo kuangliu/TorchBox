@@ -34,3 +34,12 @@ def save_checkpoint(model, optimizer, epoch, cfg):
         os.mkdir(cfg.TRAIN.CHECKPOINT_DIR)
     save_path = os.path.join(cfg.TRAIN.CHECKPOINT_DIR, '%d.pth' % epoch)
     torch.save(checkpoint, save_path)
+
+
+def load_checkpoint(model, cfg, optimizer=None):
+    ckpt = torch.load(cfg.TRAIN.CHECKPOINT,
+                      map_location=lambda storage, loc: storage)
+    m = model.module if cfg.NUM_GPUS > 1 else model
+    m.load_state_dict(ckpt['model'])
+    if optimizer:
+        optimizer.load_state_dict(ckpt['optimizer'])

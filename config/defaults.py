@@ -123,6 +123,9 @@ _C.TRAIN = CfgNode()
 # Total mini-batch size.
 _C.TRAIN.BATCH_SIZE = 128
 
+# Resume from checkpoint
+_C.TRAIN.RESUME = False
+
 # Path to the checkpoint to load the initial weight.
 _C.TRAIN.CHECKPOINT_FILE_PATH = './cache/res18.conv2d.165.0220.pth'
 
