@@ -5,12 +5,12 @@ from torch.utils.data.distributed import DistributedSampler
 
 
 def construct_loader(cfg, mode):
-    '''Construct data loader.
+    """Construct data loader.
 
     Args:
       cfg (CfgNode): configs.
       mode: (str) train/val/test.
-    '''
+    """
     train = (mode == "train")
 
     # Perform shuffle & drop_last only during training.
@@ -32,23 +32,24 @@ def construct_loader(cfg, mode):
         num_workers=cfg.DATA.NUM_WORKERS,
         pin_memory=cfg.DATA.PIN_MEMORY,
         drop_last=drop_last,
-        collate_fn=dataset.collate_fn if hasattr(dataset, 'collate_fn') else None)
+        collate_fn=dataset.collate_fn if hasattr(dataset, "collate_fn") else None)
     return loader
 
 
 def shuffle_dataset(loader, epoch):
-    '''Shuffle the dataset.
+    """Shuffle the dataset.
+
     Args:
       loader (DataLoader): data loader to perform shuffle.
       epoch (int): current epoch.
-    '''
+    """
     # RandomSampler handles shuffling automatically.
     if isinstance(loader.sampler, DistributedSampler):
         # DistributedSampler shuffles data based on epoch.
         loader.sampler.set_epoch(epoch)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from config.defaults import get_cfg
     from test.test_dataset import ExampleDataset
     cfg = get_cfg()
