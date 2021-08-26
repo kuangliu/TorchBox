@@ -31,7 +31,8 @@ def construct_loader(cfg, mode):
         sampler=sampler,
         num_workers=cfg.DATA.NUM_WORKERS,
         pin_memory=cfg.DATA.PIN_MEMORY,
-        drop_last=drop_last)
+        drop_last=drop_last,
+        collate_fn=dataset.collate_fn if hasattr(dataset, 'collate_fn') else None)
     return loader
 
 
