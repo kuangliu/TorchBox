@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
-import glog as log
-
 import torchbox.utils.checkpoint as cu
 import torchbox.utils.distributed as du
 import torchbox.utils.multiprocessing as mp
@@ -14,9 +12,13 @@ from test.test_model import ResNet18
 from test.test_dataset import ExampleDataset
 
 from config.defaults import get_cfg
+from torchbox.logger import Logger
 from torchbox.models import build_model
 from torchbox.utils.metrics import topks_correct
 from torchbox.datasets import construct_loader, shuffle_dataset
+
+
+log = Logger()
 
 
 def train_epoch(train_loader, model, optimizer, epoch, cfg):
@@ -45,7 +47,7 @@ def train_epoch(train_loader, model, optimizer, epoch, cfg):
 
         # Forward.
         outputs = model(inputs)
-        loss = F.cross_entropy(outputs, labels, reduction='mean')
+        loss = F.cross_entropy(outputs, labels, reduction="mean")
 
         # Backward.
         optimizer.zero_grad()
@@ -65,8 +67,10 @@ def train_epoch(train_loader, model, optimizer, epoch, cfg):
         if du.is_master_proc():
             train_loss += loss.item()
             train_acc = correct / total
-            log.info('Loss: %.3f | Acc: %.3f | LR: %.3f' %
+            log.info("Loss: %.3f | Acc: %.3f | LR: %.3f" %
                      (train_loss/(batch_idx+1), train_acc, lr))
+            log.add_scalar("train_loss", train_loss/(batch_idx+1), batch_idx)
+            log.add_scalar("train_acc", train_acc, batch_idx)
 
 
 @torch.no_grad()
@@ -87,7 +91,7 @@ def eval_epoch(val_loader, model, epoch, cfg):
     for batch_idx, (inputs, labels) in enumerate(val_loader):
         inputs, labels = inputs.cuda(non_blocking=True), labels.cuda()
         outputs = model(inputs)
-        loss = F.cross_entropy(outputs, labels, reduction='mean')
+        loss = F.cross_entropy(outputs, labels, reduction="mean")
 
         # Gather all predictions across all devices.
         if cfg.NUM_GPUS > 1:
@@ -102,8 +106,10 @@ def eval_epoch(val_loader, model, epoch, cfg):
         if du.is_master_proc():
             test_loss += loss.item()
             test_acc = correct / total
-            log.info('Loss: %.3f | Acc: %.3f' %
+            log.info("Loss: %.3f | Acc: %.3f" %
                      (test_loss/(batch_idx+1), test_acc))
+            log.add_scalar("test_loss", test_loss/(batch_idx+1), batch_idx)
+            log.add_scalar("test_acc", test_acc, batch_idx)
 
 
 def train(cfg):
