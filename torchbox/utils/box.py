@@ -70,6 +70,7 @@ def box_iou(box1, box2):
 
     Returns:
       (tensor) iou, sized [N,M].
+      (tensor) union, sized [N,M].
 
     Reference:
       https://github.com/chainer/chainercv/blob/master/chainercv/utils/bbox/bbox_iou.py
@@ -85,8 +86,9 @@ def box_iou(box1, box2):
 
     area1 = (box1[:, 2]-box1[:, 0]) * (box1[:, 3]-box1[:, 1])  # [N,]
     area2 = (box2[:, 2]-box2[:, 0]) * (box2[:, 3]-box2[:, 1])  # [M,]
-    iou = inter / (area1[:, None] + area2 - inter)
-    return iou
+    union = area1[:, None] + area2 - inter
+    iou = inter / union
+    return iou, union
 
 
 def box_nms(bboxes, scores, threshold=0.5):
