@@ -56,7 +56,7 @@ class Metric:
             acc = tp / (tp + fn)
         else:
             acc = tp.sum() / (tp + fn).sum()
-        return acc
+        return acc.item()
 
     def precision(self, reduction='mean'):
         '''Precision = TP / (TP+FP).
@@ -75,7 +75,7 @@ class Metric:
         prec[torch.isnan(prec)] = 0
         if reduction == 'mean':
             prec = prec.mean()
-        return prec
+        return prec.item()
 
     def recall(self, reduction='mean'):
         '''Recall = TP / P.
@@ -94,7 +94,7 @@ class Metric:
         recall[torch.isnan(recall)] = 0
         if reduction == 'mean':
             recall = recall.mean()
-        return recall
+        return recall.item()
 
     def confusion_matrix(self):
         y = torch.cat(self.y, 0)
