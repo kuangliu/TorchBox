@@ -3,8 +3,10 @@
 """
 Implement many useful :class:`Augmentation`.
 """
-import numpy as np
 import sys
+import random
+import numpy as np
+
 from fvcore.transforms.transform import (
     BlendTransform,
     CropTransform,
@@ -15,7 +17,7 @@ from fvcore.transforms.transform import (
 from PIL import Image
 
 from .augmentation import Augmentation, _transform_to_aug
-from .transform import ExtentTransform, ResizeTransform, RotationTransform
+from .transform import ExtentTransform, ResizeTransform, RotationTransform, ColorDistortTransform, LetterboxTransform
 
 __all__ = [
     "RandomApply",
@@ -27,9 +29,11 @@ __all__ = [
     "RandomSaturation",
     "RandomLighting",
     "RandomRotation",
+    "RandomColorDistort",
     "Resize",
     "ResizeShortestEdge",
     "RandomCrop_CategoryAreaConstraint",
+    "RandomLetterbox",
 ]
 
 
@@ -82,7 +86,8 @@ class RandomFlip(Augmentation):
         super().__init__()
 
         if horizontal and vertical:
-            raise ValueError("Cannot do both horiz and vert. Please use two Flip instead.")
+            raise ValueError(
+                "Cannot do both horiz and vert. Please use two Flip instead.")
         if not horizontal and not vertical:
             raise ValueError("At least one of horiz or vert has to be True!")
         self._init(locals())
@@ -152,7 +157,8 @@ class ResizeShortestEdge(Augmentation):
     def get_transform(self, image):
         h, w = image.shape[:2]
         if self.is_range:
-            size = np.random.randint(self.short_edge_length[0], self.short_edge_length[1] + 1)
+            size = np.random.randint(
+                self.short_edge_length[0], self.short_edge_length[1] + 1)
         else:
             size = np.random.choice(self.short_edge_length)
         if size == 0:
@@ -218,7 +224,8 @@ class RandomRotation(Augmentation):
                 center = np.random.choice(self.center)
 
         if center is not None:
-            center = (w * center[0], h * center[1])  # Convert to absolute coordinates
+            # Convert to absolute coordinates
+            center = (w * center[0], h * center[1])
 
         if angle % 360 == 0:
             return NoOpTransform()
@@ -250,13 +257,15 @@ class RandomCrop(Augmentation):
         # TODO style of relative_range and absolute_range are not consistent:
         # one takes (h, w) but another takes (min, max)
         super().__init__()
-        assert crop_type in ["relative_range", "relative", "absolute", "absolute_range"]
+        assert crop_type in ["relative_range",
+                             "relative", "absolute", "absolute_range"]
         self._init(locals())
 
     def get_transform(self, image):
         h, w = image.shape[:2]
         croph, cropw = self.get_crop_size((h, w))
-        assert h >= croph and w >= cropw, "Shape computation in {} has bugs.".format(self)
+        assert h >= croph and w >= cropw, "Shape computation in {} has bugs.".format(
+            self)
         h0 = np.random.randint(h - croph + 1)
         w0 = np.random.randint(w - cropw + 1)
         return CropTransform(w0, h0, cropw, croph)
@@ -281,8 +290,10 @@ class RandomCrop(Augmentation):
             return (min(self.crop_size[0], h), min(self.crop_size[1], w))
         elif self.crop_type == "absolute_range":
             assert self.crop_size[0] <= self.crop_size[1]
-            ch = np.random.randint(min(h, self.crop_size[0]), min(h, self.crop_size[1]) + 1)
-            cw = np.random.randint(min(w, self.crop_size[0]), min(w, self.crop_size[1]) + 1)
+            ch = np.random.randint(
+                min(h, self.crop_size[0]), min(h, self.crop_size[1]) + 1)
+            cw = np.random.randint(
+                min(w, self.crop_size[0]), min(w, self.crop_size[1]) + 1)
             return ch, cw
         else:
             NotImplementedError("Unknown crop type {}".format(self.crop_type))
@@ -324,7 +335,8 @@ class RandomCrop_CategoryAreaConstraint(Augmentation):
                 crop_size = self.crop_aug.get_crop_size((h, w))
                 y0 = np.random.randint(h - crop_size[0] + 1)
                 x0 = np.random.randint(w - crop_size[1] + 1)
-                sem_seg_temp = sem_seg[y0 : y0 + crop_size[0], x0 : x0 + crop_size[1]]
+                sem_seg_temp = sem_seg[y0: y0 +
+                                       crop_size[0], x0: x0 + crop_size[1]]
                 labels, cnt = np.unique(sem_seg_temp, return_counts=True)
                 if self.ignored_category is not None:
                     cnt = cnt[labels != self.ignored_category]
@@ -360,14 +372,17 @@ class RandomExtent(Augmentation):
         img_h, img_w = image.shape[:2]
 
         # Initialize src_rect to fit the input image.
-        src_rect = np.array([-0.5 * img_w, -0.5 * img_h, 0.5 * img_w, 0.5 * img_h])
+        src_rect = np.array(
+            [-0.5 * img_w, -0.5 * img_h, 0.5 * img_w, 0.5 * img_h])
 
         # Apply a random scaling to the src_rect.
         src_rect *= np.random.uniform(self.scale_range[0], self.scale_range[1])
 
         # Apply a random shift to the coordinates origin.
-        src_rect[0::2] += self.shift_range[0] * img_w * (np.random.rand() - 0.5)
-        src_rect[1::2] += self.shift_range[1] * img_h * (np.random.rand() - 0.5)
+        src_rect[0::2] += self.shift_range[0] * \
+            img_w * (np.random.rand() - 0.5)
+        src_rect[1::2] += self.shift_range[1] * \
+            img_h * (np.random.rand() - 0.5)
 
         # Map src_rect coordinates into image coordinates (center at corner).
         src_rect[0::2] += 0.5 * img_w
@@ -375,7 +390,8 @@ class RandomExtent(Augmentation):
 
         return ExtentTransform(
             src_rect=(src_rect[0], src_rect[1], src_rect[2], src_rect[3]),
-            output_size=(int(src_rect[3] - src_rect[1]), int(src_rect[2] - src_rect[0])),
+            output_size=(int(src_rect[3] - src_rect[1]),
+                         int(src_rect[2] - src_rect[0])),
         )
 
 
@@ -477,7 +493,8 @@ class RandomLighting(Augmentation):
         super().__init__()
         self._init(locals())
         self.eigen_vecs = np.array(
-            [[-0.5675, 0.7192, 0.4009], [-0.5808, -0.0045, -0.8140], [-0.5836, -0.6948, 0.4203]]
+            [[-0.5675, 0.7192, 0.4009], [-0.5808, -0.0045, -0.8140],
+                [-0.5836, -0.6948, 0.4203]]
         )
         self.eigen_vals = np.array([0.2175, 0.0188, 0.0045])
 
@@ -487,3 +504,50 @@ class RandomLighting(Augmentation):
         return BlendTransform(
             src_image=self.eigen_vecs.dot(weights * self.eigen_vals), src_weight=1.0, dst_weight=1.0
         )
+
+
+class RandomColorDistort(Augmentation):
+    """
+    Random color distortion.
+
+    Used in YOLOX.
+
+    Reference: https://github.com/ifzhang/ByteTrack/blob/main/yolox/data/data_augment.py#L150
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._init(locals())
+
+    def get_transform(self, image):
+        assert image.shape[-1] == 3, "RandomLighting only works on RGB images"
+        alpha = beta = h_delta = s_alpha = None
+        if random.randrange(2):
+            alpha = random.uniform(0.5, 1.5)
+        if random.randrange(2):
+            beta = random.uniform(-32, 32)
+        if random.randrange(2):
+            h_delta = random.randint(-18, 18)
+        if random.randrange(2):
+            s_alpha = random.uniform(0.5, 1.5)
+        return ColorDistortTransform(alpha, beta, h_delta, s_alpha)
+
+
+class RandomLetterbox(Augmentation):
+    """Random paste transform."""
+
+    def __init__(self, target_size):
+        super().__init__()
+        self._init(locals())
+
+    def get_transform(self, image):
+        assert image.shape[-1] == 3, "RandomLighting only works on RGB images"
+        img_h, img_w, _ = image.shape
+        out_w, out_h = self.target_size
+        scale = min(out_w/img_w, out_h/img_h)
+        sw = int(scale * img_w)
+        sh = int(scale * img_h)
+        assert(out_w >= sw and out_h >= sh)
+        dx = random.randint(0, out_w - sw)
+        dy = random.randint(0, out_h - sh)
+        return LetterboxTransform(self.target_size, scale, dx, dy)

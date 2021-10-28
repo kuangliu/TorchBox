@@ -19,8 +19,8 @@ def change_box_order(boxes, order):
     return torch.cat([a-b/2, a+b/2], 1)
 
 
-def box_clamp(boxes, xmin, ymin, xmax, ymax):
-    """Clamp boxes.
+def box_clip(boxes, xmin, ymin, xmax, ymax):
+    """Clip boxes.
 
     Args:
       boxes (tensor): bounding boxes of (xmin,ymin,xmax,ymax), sized [N,4].
@@ -32,10 +32,10 @@ def box_clamp(boxes, xmin, ymin, xmax, ymax):
     Returns:
       (tensor) clamped boxes.
     """
-    boxes[:, 0].clamp_(min=xmin, max=xmax)
-    boxes[:, 1].clamp_(min=ymin, max=ymax)
-    boxes[:, 2].clamp_(min=xmin, max=xmax)
-    boxes[:, 3].clamp_(min=ymin, max=ymax)
+    boxes[:, 0] = boxes[:, 0].clip(min=xmin, max=xmax)
+    boxes[:, 1] = boxes[:, 1].clip(min=ymin, max=ymax)
+    boxes[:, 2] = boxes[:, 2].clip(min=xmin, max=xmax)
+    boxes[:, 3] = boxes[:, 3].clip(min=ymin, max=ymax)
     return boxes
 
 

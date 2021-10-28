@@ -33,6 +33,8 @@ __all__ = [
     "RotationTransform",
     "ColorTransform",
     "PILColorTransform",
+    "ColorDistortTransform",
+    "LetterboxTransform",
 ]
 
 
@@ -277,6 +279,88 @@ class ColorTransform(Transform):
 
     def apply_coords(self, coords):
         return coords
+
+    def inverse(self):
+        return NoOpTransform()
+
+    def apply_segmentation(self, segmentation):
+        return segmentation
+
+
+class ColorDistortTransform(Transform):
+    """Color distortion transform used in YOLOX.
+
+    Reference: https://github.com/ifzhang/ByteTrack/blob/main/yolox/data/data_augment.py#L150
+    """
+
+    def __init__(self, alpha, beta, h_delta, s_alpha):
+        super().__init__()
+        self._set_attributes(locals())
+
+    def _convert(self, img, alpha=1, beta=0):
+        tmp = img.astype(float) * alpha + beta
+        tmp[tmp < 0] = 0
+        tmp[tmp > 255] = 255
+        img[:] = tmp
+
+    def apply_image(self, img):
+        img = img.copy()
+        if self.beta is not None:
+            self._convert(img, beta=self.beta)
+
+        if self.alpha is not None:
+            self._convert(img, alpha=self.alpha)
+
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        if self.h_delta is not None:
+            tmp = img[:, :, 0].astype(int) + self.h_delta
+            tmp %= 180
+            img[:, :, 0] = tmp
+
+        if self.s_alpha is not None:
+            self._convert(img[:, :, 1], alpha=self.s_alpha)
+
+        img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+        return img
+
+    def apply_coords(self, coords):
+        return coords
+
+    def inverse(self):
+        return NoOpTransform()
+
+    def apply_segmentation(self, segmentation):
+        return segmentation
+
+
+class LetterboxTransform(Transform):
+    """Letterbox transform used in YOLOX.
+
+    Reference: https://github.com/ifzhang/ByteTrack/blob/main/yolox/data/data_augment.py#L150
+    """
+
+    def __init__(self, target_size, scale, dx, dy):
+        super().__init__()
+        self._set_attributes(locals())
+
+    def apply_image(self, img):
+        img_h, img_w, _ = img.shape
+        sw = int(self.scale * img_w)
+        sh = int(self.scale * img_h)
+        resized = cv2.resize(img, (sw, sh), interpolation=cv2.INTER_LINEAR)
+        out_w, out_h = self.target_size
+        pad_img = np.ones((out_h, out_w, 3)) * 114.0
+        dx, dy = self.dx, self.dy
+        pad_img[dy:dy+sh, dx:dx+sw, :] = resized
+        return pad_img
+
+    def apply_coords(self, coords):
+        new_coords = coords.astype(np.float32)
+        new_coords[:, 0] *= self.scale
+        new_coords[:, 1] *= self.scale
+        new_coords[:, 0] += self.dx
+        new_coords[:, 1] += self.dy
+        return new_coords
 
     def inverse(self):
         return NoOpTransform()
