@@ -3,7 +3,9 @@
 """
 Implement many useful :class:`Augmentation`.
 """
+import cv2
 import sys
+import math
 import random
 import numpy as np
 
@@ -17,7 +19,7 @@ from fvcore.transforms.transform import (
 from PIL import Image
 
 from .augmentation import Augmentation, _transform_to_aug
-from .transform import ExtentTransform, ResizeTransform, RotationTransform, ColorDistortTransform, LetterboxTransform
+from .transform import ExtentTransform, ResizeTransform, RotationTransform, ColorDistortTransform, LetterboxTransform, PerspectiveTransform
 
 __all__ = [
     "RandomApply",
@@ -34,6 +36,7 @@ __all__ = [
     "ResizeShortestEdge",
     "RandomCrop_CategoryAreaConstraint",
     "RandomLetterbox",
+    "RandomPerspective",
 ]
 
 
@@ -551,3 +554,50 @@ class RandomLetterbox(Augmentation):
         dx = random.randint(0, out_w - sw)
         dy = random.randint(0, out_h - sh)
         return LetterboxTransform(self.target_size, scale, dx, dy)
+
+
+class RandomPerspective(Augmentation):
+    """Random perspective transform used in YOLOX.
+
+    Reference: https://github.com/ifzhang/ByteTrack/blob/main/yolox/data/data_augment.py#L54
+    """
+
+    def __init__(self, degrees, translate, scale, shear, perspective, border):
+        super().__init__()
+        self._init(locals())
+
+    def get_transform(self, img):
+        assert img.shape[-1] == 3, "RandomLighting only works on RGB images"
+        height = img.shape[0] + self.border[0] * 2  # shape(h,w,c)
+        width = img.shape[1] + self.border[1] * 2
+
+        # Center
+        C = np.eye(3)
+        C[0, 2] = -img.shape[1] / 2  # x translation (pixels)
+        C[1, 2] = -img.shape[0] / 2  # y translation (pixels)
+
+        # Rotation and Scale
+        R = np.eye(3)
+        a = random.uniform(-self.degrees, self.degrees)
+        s = random.uniform(self.scale[0], self.scale[1])
+        R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
+
+        # Shear
+        S = np.eye(3)
+        S[0, 1] = math.tan(random.uniform(-self.shear, self.shear) *
+                           math.pi / 180)  # x shear (deg)
+        S[1, 0] = math.tan(random.uniform(-self.shear, self.shear) *
+                           math.pi / 180)  # y shear (deg)
+
+        # Translation
+        T = np.eye(3)
+        T[0, 2] = (
+            random.uniform(0.5 - self.translate, 0.5 + self.translate) * width
+        )  # x translation (pixels)
+        T[1, 2] = (
+            random.uniform(0.5 - self.translate, 0.5 + self.translate) * height
+        )  # y translation (pixels)
+
+        # Combined rotation matrix.
+        M = T @ S @ R @ C  # order of operations (right to left) is IMPORTANT
+        return PerspectiveTransform(M, self.perspective, self.border)

@@ -9,6 +9,7 @@ https://detectron2.readthedocs.io/tutorials/augmentation.html
 import torch
 import torch.nn.functional as F
 
+import math
 import numpy as np
 
 from fvcore.transforms.transform import (
@@ -35,6 +36,7 @@ __all__ = [
     "PILColorTransform",
     "ColorDistortTransform",
     "LetterboxTransform",
+    "PerspectiveTransform",
 ]
 
 
@@ -361,6 +363,45 @@ class LetterboxTransform(Transform):
         new_coords[:, 0] += self.dx
         new_coords[:, 1] += self.dy
         return new_coords
+
+    def inverse(self):
+        return NoOpTransform()
+
+    def apply_segmentation(self, segmentation):
+        return segmentation
+
+
+class PerspectiveTransform(Transform):
+    """Perspective transform used in YOLOX.
+
+    Reference: https://github.com/ifzhang/ByteTrack/blob/main/yolox/data/data_augment.py#L54
+    """
+
+    def __init__(self, M, perspective, border):
+        super().__init__()
+        self._set_attributes(locals())
+
+    def apply_image(self, img):
+        height = img.shape[0] + self.border[0] * 2  # shape(h,w,c)
+        width = img.shape[1] + self.border[1] * 2
+        if self.perspective:
+            img = cv2.warpPerspective(
+                img, self.M, dsize=(width, height), borderValue=(114, 114, 114))
+        else:  # affine
+            img = cv2.warpAffine(
+                img, self.M[:2], dsize=(width, height), borderValue=(114, 114, 114))
+        return img
+
+    def apply_coords(self, coords):
+        n = len(coords)
+        xy = np.ones((n, 3))
+        xy[:, :2] = coords
+        xy = xy @ self.M.T
+        if self.perspective:
+            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, -1)  # rescale
+        else:  # affine
+            xy = xy[:, :2].reshape(n, -1)
+        return xy
 
     def inverse(self):
         return NoOpTransform()
