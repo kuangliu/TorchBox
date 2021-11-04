@@ -351,7 +351,7 @@ class LetterboxTransform(Transform):
         sh = int(self.scale * img_h)
         resized = cv2.resize(img, (sw, sh), interpolation=cv2.INTER_LINEAR)
         out_w, out_h = self.target_size
-        pad_img = np.ones((out_h, out_w, 3)) * 114.0
+        pad_img = np.ones((out_h, out_w, 3), type=img.dtype) * 114
         dx, dy = self.dx, self.dy
         pad_img[dy:dy+sh, dx:dx+sw, :] = resized
         return pad_img
