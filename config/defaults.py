@@ -88,9 +88,6 @@ _C.SOLVER.NESTEROV = True
 # L2 regularization.
 _C.SOLVER.WEIGHT_DECAY = 1e-4
 
-# Start the warm up from SOLVER.BASE_LR * SOLVER.WARMUP_FACTOR.
-_C.SOLVER.WARMUP_FACTOR = 0.1
-
 # Gradually warm up the SOLVER.BASE_LR over this number of epochs.
 _C.SOLVER.WARMUP_EPOCHS = 0.0
 
