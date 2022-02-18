@@ -40,9 +40,21 @@ def test_crop(img, boxes):
     print(boxes_t)
 
 
+def test_cutout(img):
+    augs = T.AugmentationList([
+        T.Cutout(0.5),
+    ])
+    print(augs)
+    data = T.AugInput(img)
+    transform = augs(data)
+    img_t = data.image
+    cv2.imwrite('z.png', img_t)
+
+
 if __name__ == '__main__':
     img = cv2.imread('./img/test.jpg')
     boxes = np.array([[0, 0, 100, 100]]).astype(np.float32)
     # test_brightness(img)
     # test_flip(img, boxes)
-    test_crop(img, boxes)
+    # test_crop(img, boxes)
+    test_cutout(img)

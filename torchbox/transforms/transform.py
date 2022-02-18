@@ -37,6 +37,7 @@ __all__ = [
     "ColorDistortTransform",
     "LetterboxTransform",
     "PerspectiveTransform",
+    "CutoutTransform,"
 ]
 
 
@@ -433,6 +434,23 @@ class PILColorTransform(ColorTransform):
     def apply_image(self, img):
         img = Image.fromarray(img)
         return np.asarray(super().apply_image(img))
+
+
+class CutoutTransform(Transform):
+    def __init__(self, region):
+        super().__init__()
+        self._set_attributes(locals())
+
+    def apply_image(self, img):
+        H, W = img.shape[:2]
+        x, y, w, h = self.region
+        x2 = min(W-1, x+w)
+        y2 = min(H-1, y+h)
+        img[y:y2, x:x2, :] = 0
+        return img
+
+    def apply_coords(self, coords):
+        return coords
 
 
 def HFlip_rotated_box(transform, rotated_boxes):
