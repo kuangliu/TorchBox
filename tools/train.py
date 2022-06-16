@@ -32,7 +32,7 @@ def train_epoch(train_loader, model, optimizer, epoch, cfg):
       cfg (CfgNode): configs. Details can be found in config/defaults.py
     """
     if du.is_master_proc():
-       log.info('Epoch: %d' % epoch)
+        log.info(f'Epoch: {epoch}')
 
     model.train()
     num_batches = len(train_loader)
@@ -56,8 +56,8 @@ def train_epoch(train_loader, model, optimizer, epoch, cfg):
 
         # Gather all predictions across all devices.
         if cfg.NUM_GPUS > 1:
-           loss = du.all_reduce([loss])[0]
-           outputs, labels = du.all_gather([outputs, labels])
+            loss = du.all_reduce([loss])[0]
+            outputs, labels = du.all_gather([outputs, labels])
 
         # Accuracy.
         batch_correct = topks_correct(outputs, labels, (1,))[0]
@@ -67,8 +67,8 @@ def train_epoch(train_loader, model, optimizer, epoch, cfg):
         if du.is_master_proc():
             train_loss += loss.item()
             train_acc = correct / total
-            log.info("Loss: %.3f | Acc: %.3f | LR: %.3f" %
-                     (train_loss/(batch_idx+1), train_acc, lr))
+            log.info(
+                f"Loss: {train_loss/(batch_idx+1):.3f} | Acc: {train_acc:.3f} | LR: {lr:.3f}")
             log.add_scalar("train_loss", train_loss/(batch_idx+1), batch_idx)
             log.add_scalar("train_acc", train_acc, batch_idx)
 
@@ -106,8 +106,7 @@ def eval_epoch(val_loader, model, epoch, cfg):
         if du.is_master_proc():
             test_loss += loss.item()
             test_acc = correct / total
-            log.info("Loss: %.3f | Acc: %.3f" %
-                     (test_loss/(batch_idx+1), test_acc))
+            log.info(f"Loss: {test_loss/(batch_idx+1):.3f} | Acc: {test_acc:.3f}")
             log.add_scalar("test_loss", test_loss/(batch_idx+1), batch_idx)
             log.add_scalar("test_acc", test_acc, batch_idx)
 
@@ -126,17 +125,22 @@ def train(cfg):
 
 
 if __name__ == "__main__":
+    import os
     cfg = get_cfg()
     if cfg.NUM_GPUS > 1:
+        shard_id = int(os.getenv("RANK", default=0))
+        num_shards = int(os.getenv("WORLD_SIZE", default=1))
+
         torch.multiprocessing.spawn(
             mp.run,
             nprocs=cfg.NUM_GPUS,
             args=(
                 cfg.NUM_GPUS,
                 train,
-                'tcp://localhost:9999',
-                0,  # shard_id
-                1,  # num_shards
+                # "file:///dataset/liuk6_sharedfile",
+                "tcp://localhost:9999",
+                shard_id,
+                num_shards,
                 'nccl',
                 cfg,
             ),
